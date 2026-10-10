@@ -1,0 +1,26 @@
+name: amlogic-history
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Clone fork
+        run: git clone https://github.com/Toysoft/enigma2-amlogic.git fork
+      - name: Removal commit
+        run: |
+          cd fork
+          git show --stat=110 --format='%h %cd %s' 64f2f30f0 | head -60
+      - name: Commits mentioning amlogic
+        run: |
+          cd fork
+          git log --oneline -i --grep=amlogic | head -40 || true
+      - name: Files with amlogic before removal
+        run: |
+          cd fork
+          git grep -I -l -i amlogic 64f2f30f0~1 | head -60 || true
+      - name: OpenViX amlogic branch
+        run: |
+          export GIT_TERMINAL_PROMPT=0
+          git clone --depth 1 --branch amlogic https://github.com/OpenViX/enigma2.git vix || echo "clone failed"
+          cd vix 2>/dev/null && git log -1 --format='%h %cd %s' && grep -rIl -i amlogic . --exclude-dir=.git | head -60 || true
