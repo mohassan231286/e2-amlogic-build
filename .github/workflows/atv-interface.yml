@@ -1,0 +1,30 @@
+name: atv-interface
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Clone openatv enigma2
+        run: |
+          export GIT_TERMINAL_PROMPT=0
+          git clone https://github.com/openatv/enigma2.git atv || echo "clone failed"
+          cd atv 2>/dev/null || exit 0
+          git cat-file -t 3bbdfa30 || echo "hash not found"
+          git checkout -q 3bbdfa30 || true
+          git log -1 --format='%h %cd %s'
+      - name: Decoder interface
+        run: |
+          cd atv 2>/dev/null || exit 0
+          f=$(grep -rl "class iTSMPEGDecoder" lib | head -1)
+          echo "FILE: $f"
+          grep -n "class iTSMPEGDecoder" -A 80 "$f" | head -120
+      - name: Decoder creation and devices
+        run: |
+          cd atv 2>/dev/null || exit 0
+          grep -n "getMPEGDecoder" -B2 -A8 lib/dvb/demux.cpp | head -40
+          grep -n "video%d\|audio%d\|/dev/dvb" lib/dvb/decoder.cpp | head -30
+      - name: Amlogic mentions
+        run: |
+          cd atv 2>/dev/null || exit 0
+          grep -rIl -i "amlogic\|meson" . --exclude-dir=.git | head -30
