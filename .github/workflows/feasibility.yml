@@ -1,0 +1,24 @@
+name: feasibility
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Runner resources
+        run: |
+          nproc
+          free -g
+          df -h / /mnt
+      - name: Clone OpenPLi sources
+        run: |
+          git clone --depth 1 https://github.com/OpenPLi/enigma2.git
+          git clone --depth 1 https://github.com/OpenPLi/openpli-oe-core.git
+      - name: Amlogic in enigma2
+        run: |
+          grep -rIn -i -E "HAVE_AMLOGIC|amstream|amdec|aml" enigma2 --include=*.ac --include=*.am --include=*.cpp --include=*.h | head -60
+      - name: Amlogic in oe-core
+        run: |
+          ls openpli-oe-core
+          grep -n -i -E "amlogic|meson|BSP" openpli-oe-core/Makefile | head -40
+          grep -rIl -i amlogic openpli-oe-core | head -40
