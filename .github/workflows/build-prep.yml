@@ -1,0 +1,35 @@
+name: build-prep
+on: workflow_dispatch
+jobs:
+  prep:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - name: Runner
+        run: |
+          mkdir out
+          { uname -m; nproc; free -g; df -h /; } > out/runner.txt
+      - name: Recipes
+        run: |
+          export GIT_TERMINAL_PROMPT=0
+          git clone --depth 1 https://github.com/oe-alliance/oe-alliance-core.git oac
+          cp oac/meta-brands/meta-dream/conf/machine/dreamone.conf out/ || true
+          grep -rIn "ENIGMA2_URI\|ENIGMA2_BRANCH" oac --include=*.bb --include=*.inc --include=*.conf | head -30 > out/enigma2-uri.txt || true
+      - name: Enigma2 configure
+        run: |
+          git clone --no-checkout https://github.com/openatv/enigma2.git atv
+          cd atv
+          git checkout -q 3bbdfa38e0
+          cp configure.ac ../out/configure.ac
+          grep -n "DREAMNEXTGEN" configure.ac Makefile.am main/Makefile.am > ../out/dreamnextgen-in-e2.txt || true
+      - name: Feed toolchain
+        run: |
+          B=https://feeds2.mynonpublic.com/8.0.1/dreamone
+          for d in aarch64 all dreamone; do curl -sS -L -f -o $d.gz $B/$d/Packages.gz && zcat $d.gz > $d.txt; done
+          cat aarch64.txt all.txt dreamone.txt > allpkgs.txt
+          grep "^Package:" allpkgs.txt | sed 's/Package: //' > out/package-names.txt
+          for p in gcc g++ binutils make autoconf automake libtool pkgconfig swig python3-dev glibc-dev libstdc++-dev linux-libc-headers-dev opkg; do printf "%s: " $p; grep -c "^Package: $p$" allpkgs.txt; done > out/toolchain-check.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-prep
+          path: out
