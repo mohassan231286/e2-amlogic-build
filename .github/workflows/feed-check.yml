@@ -1,0 +1,32 @@
+name: feed-check
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Source revision
+        run: |
+          git clone --no-checkout https://github.com/openatv/enigma2.git atv
+          cd atv
+          git cat-file -t 3bbdfa38e0 || echo "NOT FOUND"
+          git rev-list --count HEAD
+          git branch -r --contains 3bbdfa38e0 | head -5 || true
+      - name: Fetch package lists
+        run: |
+          mkdir feeds
+          cd feeds
+          B=https://feeds2.mynonpublic.com/8.0.1/dreamone
+          for d in aarch64 all dreamone; do
+            if curl -sS -L -f -o $d.gz $B/$d/Packages.gz; then echo "$d ok"; zcat $d.gz > $d.txt; else echo "$d FAILED"; fi
+          done
+          ls -la
+      - name: Dev packages
+        run: |
+          cd feeds
+          grep -h "^Package:" aarch64.txt | grep -c -e "-dev" || true
+          grep -h "^Package:" aarch64.txt all.txt dreamone.txt | grep -E "sigc|python3-dev|gstreamer1.0-dev|freetype-dev|libdvbsi|swig|fribidi|giflib|libdvbcsa|openssl-dev" | head -50 || true
+      - name: Enigma2 entries
+        run: |
+          cd feeds
+          grep -h -A10 "^Package: enigma2$" aarch64.txt dreamone.txt all.txt | head -30 || true
