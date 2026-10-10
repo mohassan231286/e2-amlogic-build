@@ -1,0 +1,21 @@
+name: feasibility
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Clone
+        run: |
+          git clone --depth 1 https://github.com/OpenPLi/enigma2.git
+          git clone --depth 1 https://github.com/OpenPLi/openpli-oe-core.git
+      - name: enigma2 amlogic files
+        run: |
+          grep -rIl -i amlogic enigma2 | head -40 || true
+      - name: enigma2 amlogic lines
+        run: |
+          grep -rIn -E "HAVE_AMLOGIC|with-amlogic|amstream|amvideo|amaudio|libamdec" enigma2 | head -80 || true
+      - name: oe-core details
+        run: |
+          grep -n -i amlogic openpli-oe-core/meta-openpli/recipes-multimedia/showiframe/showiframe/showiframe.c | head -20 || true
+          ls openpli-oe-core/meta-dream/conf/machine || true
