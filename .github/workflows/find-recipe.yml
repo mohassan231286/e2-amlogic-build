@@ -1,0 +1,25 @@
+name: find-recipe
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Clone candidates
+        run: |
+          export GIT_TERMINAL_PROMPT=0
+          for r in oe-alliance/oe-alliance-core openatv/meta-openatv openatv/openatv-core; do
+            n=$(basename $r)
+            git clone --depth 1 https://github.com/$r.git $n 2>&1 | tail -1 || true
+          done
+          ls
+      - name: Where is DREAMNEXTGEN
+        run: |
+          grep -rIn "DREAMNEXTGEN" . --include=*.bb --include=*.bbclass --include=*.inc --include=*.conf --include=*.bbappend | head -25 || true
+          find . -iname "*dreamone*" | head -20
+      - name: enigma2 recipe
+        run: |
+          for x in $(find . \( -name "enigma2.bb" -o -name "enigma2_*.bb" -o -name "enigma2.inc" \) | head -5); do
+            echo "== $x"
+            grep -n "EXTRA_OECONF\|CPPFLAGS\|PACKAGECONFIG\|SRC_URI\|SRCREV\|--with\|--enable" "$x" | head -60
+          done
