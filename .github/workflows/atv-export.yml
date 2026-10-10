@@ -1,0 +1,20 @@
+name: atv-export
+on: workflow_dispatch
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Clone and collect
+        run: |
+          git clone --depth 1 https://github.com/openatv/enigma2.git atv
+          mkdir out
+          cd atv
+          git log -1 --format='%h %cd %s' > ../out/version.txt
+          cp lib/dvb/idvb.h lib/dvb/decoder.h lib/dvb/decoder.cpp lib/dvb/demux.h lib/dvb/demux.cpp ../out/
+          grep -rIn -i -E "amlogic|meson" configure.ac lib/dvb lib/service/servicedvb.cpp lib/service/servicemp3.cpp lib/driver > ../out/amlogic-mentions.txt || true
+          grep -n "setSyncPCR" -B8 -A6 lib/service/servicedvb.cpp > ../out/servicedvb-pcr.txt || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: atv-code
+          path: out
