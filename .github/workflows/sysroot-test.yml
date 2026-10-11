@@ -1,0 +1,194 @@
+name: sysroot-test
+on: workflow_dispatch
+defaults:
+  run:
+    shell: bash {0}
+jobs:
+  sysroot:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - name: Host tools and package lists
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq pkgconf zstd xz-utils binutils
+          mkdir out
+          B=https://feeds2.mynonpublic.com/8.0.1/dreamone
+          for d in aarch64 all dreamone; do
+            curl -sS -L -f -o $d.gz $B/$d/Packages.gz && zcat $d.gz > $d.txt
+          done
+          ls -la *.txt
+      - name: Resolver script
+        run: |
+          cat > mksysroot.py <<'PYEOF'
+          import os, sys, subprocess, tempfile, urllib.parse, urllib.request
+          import concurrent.futures as cf
+
+          BASE = "https://feeds2.mynonpublic.com/8.0.1/dreamone"
+          ROOT = os.path.abspath(sys.argv[1])
+          WANT = sys.argv[2:]
+          DRY = os.environ.get("DRYRUN") == "1"
+
+          def parse(path, feed):
+              pk, cur, last = {}, {}, None
+              def flush():
+                  if cur.get("Package"):
+                      d = dict(cur)
+                      d["_feed"] = feed
+                      pk.setdefault(d["Package"], d)
+              for line in open(path, encoding="utf-8", errors="replace"):
+                  line = line.rstrip("\n")
+                  if not line.strip():
+                      flush()
+                      cur.clear()
+                      last = None
+                      continue
+                  if line[0] in " \t" and last:
+                      cur[last] += " " + line.strip()
+                      continue
+                  k, _, v = line.partition(":")
+                  cur[k] = v.strip()
+                  last = k
+              flush()
+              return pk
+
+          allp = {}
+          for feed in ("aarch64", "all", "dreamone"):
+              for n, p in parse(feed + ".txt", feed).items():
+                  allp.setdefault(n, p)
+
+          provides = {}
+          for n, p in allp.items():
+              for tok in p.get("Provides", "").split(","):
+                  t = tok.strip().split(" ")[0]
+                  if t and t not in allp:
+                      provides.setdefault(t, n)
+
+          def resolve(name):
+              if name in allp:
+                  return name
+              return provides.get(name)
+
+          need, order, missing = set(), [], []
+          stack = list(WANT)
+          while stack:
+              n = stack.pop()
+              r = resolve(n)
+              if r is None:
+                  missing.append(n)
+                  continue
+              if r in need:
+                  continue
+              need.add(r)
+              order.append(r)
+              for tok in allp[r].get("Depends", "").split(","):
+                  tok = tok.strip()
+                  if not tok:
+                      continue
+                  alts = [a.strip().split(" ")[0] for a in tok.split("|")]
+                  pick = next((a for a in alts if resolve(a)), alts[0])
+                  stack.append(pick)
+
+          os.makedirs("out", exist_ok=True)
+          open("out/closure.txt", "w").write("\n".join(sorted(need)) + "\n")
+          open("out/missing.txt", "w").write("\n".join(sorted(set(missing))) + "\n")
+          print("packages in closure:", len(need), " missing:", len(set(missing)), flush=True)
+          if DRY:
+              sys.exit(0)
+
+          os.makedirs("ipk", exist_ok=True)
+          os.makedirs(ROOT, exist_ok=True)
+
+          def get(n):
+              p = allp[n]
+              fn = p["Filename"]
+              dst = os.path.join("ipk", os.path.basename(fn))
+              if os.path.exists(dst) and os.path.getsize(dst) > 0:
+                  return n, dst, None
+              url = BASE + "/" + p["_feed"] + "/" + urllib.parse.quote(fn, safe="/+")
+              err = None
+              for _ in range(3):
+                  try:
+                      urllib.request.urlretrieve(url, dst)
+                      return n, dst, None
+                  except Exception as e:
+                      err = str(e)
+              return n, dst, err
+
+          def extract(path):
+              tmp = tempfile.mkdtemp()
+              with open(path, "rb") as f:
+                  magic = f.read(8)
+              if magic.startswith(b"!<arch>"):
+                  subprocess.run(["ar", "x", os.path.abspath(path)], cwd=tmp, check=True)
+              else:
+                  subprocess.run(["tar", "-xf", os.path.abspath(path), "-C", tmp], check=True)
+              data = [x for x in os.listdir(tmp) if x.startswith("data.tar")]
+              if not data:
+                  raise RuntimeError("no data.tar in " + path)
+              subprocess.run(["tar", "-xf", os.path.join(tmp, data[0]), "-C", ROOT,
+                              "--keep-directory-symlink"], check=True)
+
+          failed = []
+          with cf.ThreadPoolExecutor(8) as ex:
+              results = list(ex.map(get, sorted(need)))
+          for n, dst, err in results:
+              if err:
+                  failed.append("download " + n + ": " + err)
+                  continue
+              try:
+                  extract(dst)
+              except Exception as e:
+                  failed.append("extract " + n + ": " + str(e))
+          open("out/failed.txt", "w").write("\n".join(failed) + "\n")
+          print("done. failed:", len(failed), flush=True)
+          PYEOF
+          python3 -m py_compile mksysroot.py && echo script-ok
+      - name: Build sysroot from feed
+        run: |
+          sudo python3 mksysroot.py "$PWD/root" gcc g++ gcc-symlinks g++-symlinks cpp binutils make libtool swig gettext python3-core python3-dev libc6-dev libstdc++-dev libgcc-s-dev linux-libc-headers-dev busybox bash libsigc-3.0-dev gstreamer1.0-dev gstreamer1.0-plugins-base-dev libfreetype-dev libfribidi-dev libdvbsi++-dev libdvbcsa-dev openssl-dev libpng16-dev libjpeg-dev libgif-dev libxml2-dev libz-dev libbluray-dev libdreamdvd-dev libudfread-dev libtuxtxt-dev ffmpeg-dev libasound-dev libwebp-dev curl-dev libglib-2.0-dev libgomp-dev libcrypt-dev avahi-dev 2>&1 | tee out/mksysroot.log
+          du -sh root | tee -a out/mksysroot.log
+      - name: Prepare chroot
+        run: |
+          R=$PWD/root
+          sudo mkdir -p $R/proc $R/dev $R/sys $R/tmp $R/etc
+          sudo chmod 1777 $R/tmp
+          sudo mount -t proc proc $R/proc
+          sudo mount --bind /dev $R/dev
+          sudo cp /etc/resolv.conf $R/etc/resolv.conf
+          BB=$(cd $R && ls bin/busybox* usr/bin/busybox* 2>/dev/null | head -1)
+          echo "busybox: $BB" | tee out/prepare.log
+          sudo chroot $R /$BB --install -s 2>&1 | tail -3 | tee -a out/prepare.log
+          [ -e $R/bin/sh ] || sudo ln -s $(basename $BB) $R/bin/sh
+          sudo cp -a /usr/bin/pkgconf $R/usr/bin/
+          sudo ln -sf pkgconf $R/usr/bin/pkg-config
+          sudo cp -a /usr/lib/aarch64-linux-gnu/libpkgconf.so.* $R/usr/lib/
+          ls -la $R/bin/sh $R/usr/bin/gcc* $R/usr/bin/g++* $R/usr/bin/python3* 2>&1 | tee -a out/prepare.log
+      - name: Test toolchain in chroot
+        run: |
+          R=$PWD/root
+          sudo tee $R/tmp/t.cpp > /dev/null <<'CPPEOF'
+          #include <sigc++/sigc++.h>
+          #include <iostream>
+          int main() {
+            sigc::signal<void(int)> s;
+            s.connect([](int x) { std::cout << "sigc ok " << x << std::endl; });
+            s.emit(7);
+          }
+          CPPEOF
+          sudo chroot $R /bin/sh -c 'export PATH=/usr/bin:/bin:/usr/sbin:/sbin PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/share/pkgconfig; cd /tmp; (gcc --version | head -1; g++ --version | head -1; make --version | head -1; ld --version | head -1; python3 --version; swig -version | head -3; pkg-config --modversion sigc++-3.0 gstreamer-1.0 freetype2) 2>&1; g++ -std=c++20 t.cpp $(pkg-config --cflags --libs sigc++-3.0) -o t 2>&1 && ./t' 2>&1 | tee out/tests.log
+      - name: Export recipes
+        if: always()
+        run: |
+          git clone --depth 1 https://github.com/oe-alliance/oe-alliance-core.git oac
+          mkdir -p out/recipe
+          find oac -path "*recipes-oe-alliance/enigma2*" -type f -print0 | xargs -0 -I{} cp --parents {} out/recipe/
+          find oac -name "*.bbappend" -path "*enigma2*" -print0 | xargs -0 -I{} cp --parents {} out/recipe/
+          cp --parents oac/meta-oe/conf/distro/openatv.conf out/recipe/
+          cp -r oac/meta-brands/meta-dream/conf out/recipe/dream-conf
+          du -sh out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sysroot-test
+          path: out
