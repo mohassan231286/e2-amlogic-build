@@ -163,6 +163,9 @@ jobs:
         run: |
           sudo python3 mksysroot.py "$PWD/root" gcc g++ gcc-symlinks g++-symlinks cpp cpp-symlinks binutils make libtool swig gettext gettext-dev coreutils gawk findutils diffutils tar bzip2 xz busybox bash python3-core python3-dev python3-six libc6-dev libstdc++-dev libgcc-s-dev libatomic-dev libgomp-dev linux-libc-headers-dev libsigc-3.0-dev gstreamer1.0-dev gstreamer1.0-plugins-base-dev libfreetype-dev libfribidi-dev libdvbsi++-dev libdvbcsa-dev openssl-dev libpng16-dev libjpeg-dev libgif-dev libxml2-dev libz-dev libbluray-dev libdreamdvd-dev libudfread-dev libtuxtxt-dev libtuxtxt32bpp-dev libmad-dev libxmlccwrap-dev ffmpeg-dev libasound-dev libwebp-dev curl-dev libglib-2.0-dev libcrypt-dev avahi-dev 2>&1 | tee -a out/mksysroot.log
           du -sh root | tee -a out/mksysroot.log
+                    # python stdlib
+          sudo python3 mksysroot.py "$PWD/root" python3-modules 2>&1 | tee -a out/mksysroot.log
+          sudo chroot "$PWD/root" /usr/bin/python3 -c "import sys,os,linecache,sysconfig;print(sys.prefix);print(sys.path)" 2>&1 | tee out/python-test.log
       - name: Prepare chroot
         run: |
           R=$PWD/root
