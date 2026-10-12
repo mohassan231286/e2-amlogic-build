@@ -215,7 +215,7 @@ jobs:
           export CPPFLAGS="-Wno-error=format-security"
           export LDFLAGS="-lxml2"
           cd /build/src
-          ./configure --prefix=/usr --exec_prefix=/usr --bindir=/usr/bin --sbindir=/usr/sbin --libexecdir=/usr/libexec --datadir=/usr/share --sysconfdir=/etc --sharedstatedir=/com --localstatedir=/var --libdir=/usr/lib --includedir=/usr/include --oldincludedir=/usr/include --infodir=/usr/share/info --mandir=/usr/share/man --disable-silent-rules --enable-dependency-tracking BUILD_SYS=aarch64-linux HOST_SYS=aarch64-oe-linux STAGING_INCDIR=/usr/include STAGING_LIBDIR=/usr/lib --with-boxtype=dreamone --with-machinebuild=dreamone --with-libsdl=no --with-gstversion=1.0 --with-e2rev=35806+3bbdfa38e0 --with-oarev=unknown --with-alsa --with-alsacard=hw:0 --with-alsamixer=Master --with-fbdev=/dev/fb0 --with-lcddev=/dev/null
+          ./configure --prefix=/usr --exec_prefix=/usr --bindir=/usr/bin --sbindir=/usr/sbin --libexecdir=/usr/libexec --datadir=/usr/share --sysconfdir=/etc --sharedstatedir=/com --localstatedir=/var --libdir=/usr/lib --includedir=/usr/include --oldincludedir=/usr/include --infodir=/usr/share/info --mandir=/usr/share/man --disable-silent-rules --enable-dependency-tracking BUILD_SYS=aarch64-linux HOST_SYS=aarch64-oe-linux STAGING_INCDIR=/usr/include STAGING_LIBDIR=/usr/lib --with-boxtype=generic --with-machinebuild=generic --with-libsdl=no --with-gstversion=1.0 --with-e2rev=35806+3bbdfa38e0 --with-oarev=unknown --with-alsa --with-alsacard=hw:0 --with-alsamixer=Master --with-fbdev=/dev/fb0 --with-lcddev=/dev/null
           CFGEOF
           sudo chroot $R /bin/sh /build/cfg.sh > out/configure.log 2>&1
           echo "configure exit: $?" | tee -a out/configure.log
