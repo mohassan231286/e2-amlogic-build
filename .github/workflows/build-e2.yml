@@ -1,5 +1,7 @@
 name: build-e2
 on: workflow_dispatch
+permissions:
+  contents: write
 defaults:
   run:
     shell: bash {0}
@@ -236,12 +238,24 @@ jobs:
           grep -n -E "error:|Error [0-9]|undefined reference|No such file|not found" make.log | head -80 > out/make-errors.txt
           tail -60 make.log > out/make-tail.log
           gzip -c make.log > out/make.log.gz
+          sudo chroot $R /usr/bin/strip --strip-unneeded /out/usr/bin/enigma2
           ls -la $R/out/usr/bin 2>/dev/null | tee -a out/make-exit.txt
           sudo chroot $R /usr/bin/readelf -d /out/usr/bin/enigma2 2>/dev/null | grep NEEDED > out/enigma2-needed.txt
+          W=$PWD
           mkdir -p install
-          sudo tar czf install/enigma2-install.tar.gz -C $R/out .
-          ls -la install
+          sudo tar czf $W/install/enigma2-install.tar.gz -C $R/out .
+          FILES="usr/bin/enigma2"
+          [ -f $R/out/usr/lib/enigma2/python/enigma.py ] && FILES="$FILES usr/lib/enigma2/python/enigma.py"
+          sudo tar czf $W/install/enigma2-bin.tar.gz -C $R/out $FILES
+          ls -la install | tee -a out/make-exit.txt
           exit $RC
+      - name: Publish release
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest -R $GITHUB_REPOSITORY > /dev/null 2>&1 || gh release create latest -R $GITHUB_REPOSITORY --title "latest build" --notes "automated enigma2 build"
+          gh release upload latest -R $GITHUB_REPOSITORY install/enigma2-bin.tar.gz install/enigma2-install.tar.gz --clobber
       - uses: actions/upload-artifact@v4
         if: always()
         with:
