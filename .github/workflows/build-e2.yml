@@ -237,7 +237,7 @@ jobs:
           export PATH=/usr/bin:/bin:/usr/sbin:/sbin
           export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/share/pkgconfig
           cd /build/src
-          make -k -j4 && make install DESTDIR=/out
+          make -k -j4 V=1 || { cat make.log | grep -A 5 -B 5 "error:"; exit 1; }
           MKEOF
           sudo chroot $R /bin/sh /build/make.sh > make.log 2>&1
           RC=$?
