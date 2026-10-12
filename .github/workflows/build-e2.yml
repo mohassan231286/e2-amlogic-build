@@ -155,6 +155,7 @@ jobs:
           git log -1 --format='%h %cd %s' | tee ../out/e2-version.txt
           patch -p1 --no-backup-if-mismatch -i ../oac/meta-oe/recipes-oe-alliance/enigma2/enigma2/openatv/swig-4.3.patch 2>&1 | tee ../out/patch.log
           sed -i "s/sigc++-2.0/sigc++-3.0/g" configure.ac enigma2.pc.in
+          curl -sL "https://github.com/Toysoft/enigma2-amlogic/commit/64f2f30f0.patch" | patch -p1 -R --no-backup-if-mismatch || true
           autoreconf -v --install --force 2>&1 | tee ../out/autoreconf.log | tail -15
           ls -la configure Makefile.in
       - name: Build sysroot from feed
