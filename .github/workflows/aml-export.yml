@@ -1,0 +1,27 @@
+name: aml-export
+on: workflow_dispatch
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Collect
+        run: |
+          git clone --branch 8.0 --single-branch https://github.com/openatv/enigma2.git src
+          cd src
+          git checkout -q 3bbdfa38e0
+          cd ..
+          mkdir out
+          find src -iname "*aml*" > out/aml-files.txt
+          cp src/lib/dvb/amldecoder.* out/ 2>/dev/null
+          cp src/lib/dvb/Makefile.inc src/lib/dvb/demux.cpp src/lib/dvb/demux.h out/
+          grep -rn "HAVE_AMLOGIC" src --include=*.cpp --include=*.h --include=*.ac --include=*.am --include=*.inc --include=*.py > out/have-amlogic.txt
+          grep -n -i -B2 -A10 "amlogic" src/configure.ac > out/configure-aml.txt
+          git clone --depth 1 https://github.com/vitmod/libp.git libp
+          git -C libp branch -a > out/libp-branches.txt
+          git -C libp log -3 --format='%h %cd %s' >> out/libp-branches.txt
+          ls libp/amcodec/include libp/amadec/include > out/libp-headers.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aml-export
+          path: out
