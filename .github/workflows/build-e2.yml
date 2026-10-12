@@ -157,8 +157,10 @@ jobs:
           sed -i "s/sigc++-2.0/sigc++-3.0/g" configure.ac enigma2.pc.in
           curl -sL "https://raw.githubusercontent.com/Toysoft/enigma2-amlogic/01c58b03e7b7bef6da6b5c53a994df97ac4a7d07/lib/dvb/amldecoder.cpp" -o lib/dvb/amldecoder.cpp
           curl -sL "https://raw.githubusercontent.com/Toysoft/enigma2-amlogic/01c58b03e7b7bef6da6b5c53a994df97ac4a7d07/lib/dvb/amldecoder.h" -o lib/dvb/amldecoder.h
-          sed -i '/dvb\/atsc.cpp/a if HAVE_AMLOGIC\ndvb_libenigma_dvb_a_SOURCES += dvb\/amldecoder.cpp\nendif' lib/dvb/Makefile.inc
-          sed -i '/dvb\/atsc.h/a dvb\/amldecoder.h \\' lib/dvb/Makefile.inc
+          echo "" >> lib/dvb/Makefile.inc
+          echo "if HAVE_AMLOGIC" >> lib/dvb/Makefile.inc
+          echo "dvb_libenigma_dvb_a_SOURCES += dvb/amldecoder.cpp" >> lib/dvb/Makefile.inc
+          echo "endif" >> lib/dvb/Makefile.inc
           sed -i '/AC_DEFINE_UNQUOTED(LCD_DEV/a AC_ARG_WITH(amlogic, AC_HELP_STRING([--with-amlogic], [use amlogic MPEG decoder]), [[with_amlogic=$withval]], [[with_amlogic=no]])\nAM_CONDITIONAL(HAVE_AMLOGIC, test x"$with_amlogic" = xyes)\nif test x"$with_amlogic" = xyes ; then\n  AC_DEFINE(HAVE_AMLOGIC, 1, [Enables AMLOGIC decoder support])\nfi' configure.ac
           autoreconf -v --install --force 2>&1 | tee ../out/autoreconf.log | tail -15
           ls -la configure Makefile.in
@@ -264,4 +266,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: alt/data/setup/speed2.post_id+1280j_specative_print_build/release505001280s/npm_video/keymap.json
+          name: build-logs
+          path: out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-install
+          path: install
