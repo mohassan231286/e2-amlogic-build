@@ -158,8 +158,7 @@ jobs:
           sed -i "s/sigc++-2.0/sigc++-3.0/g" configure.ac enigma2.pc.in
           curl -sL "https://raw.githubusercontent.com/Toysoft/enigma2-amlogic/01c58b03e7b7bef6da6b5c53a994df97ac4a7d07/lib/dvb/amldecoder.cpp" -o lib/dvb/amldecoder.cpp
           curl -sL "https://raw.githubusercontent.com/Toysoft/enigma2-amlogic/01c58b03e7b7bef6da6b5c53a994df97ac4a7d07/lib/dvb/amldecoder.h" -o lib/dvb/amldecoder.h
-          sed -i 's/sigc::signal1/sigc::signal/g' lib/dvb/amldecoder.h lib/dvb/amldecoder.cpp
-          sed -i 's/sigc::slot1/sigc::slot/g' lib/dvb/amldecoder.h lib/dvb/amldecoder.cpp
+          sed -i -E 's/sigc::(signal|slot)1?<void, ([^>]+)>/sigc::\1<void(\2)>/g' lib/dvb/amldecoder.h lib/dvb/amldecoder.cpp
           sed -i 's/m_pvr_fd/getDvrId()/g' lib/dvb/amldecoder.cpp
           echo "" >> lib/dvb/Makefile.inc
           echo "if HAVE_AMLOGIC" >> lib/dvb/Makefile.inc
@@ -255,6 +254,13 @@ jobs:
           sudo chroot $R /usr/bin/strip --strip-unneeded /out/usr/bin/enigma2
           ls -la install | tee -a out/make-exit.txt
           exit $RC
+      - name: Package install files
+        run: |
+          mkdir -p install
+          sudo tar -czf install/enigma2-install.tar.gz -C root/out . || exit 1
+          sudo tar -czf install/enigma2-bin.tar.gz -C root/out usr/bin/enigma2 || exit 1
+          sudo chown -R "$(id -u):$(id -g)" install
+          ls -la install
       - name: Publish release
         if: success()
         env:
