@@ -160,10 +160,7 @@ jobs:
           curl -sL "https://raw.githubusercontent.com/Toysoft/enigma2-amlogic/01c58b03e7b7bef6da6b5c53a994df97ac4a7d07/lib/dvb/amldecoder.h" -o lib/dvb/amldecoder.h
           sed -i -E 's/sigc::(signal|slot)1?<void, ([^>]+)>/sigc::\1<void(\2)>/g' lib/dvb/amldecoder.h lib/dvb/amldecoder.cpp
           sed -i 's/m_pvr_fd/getDvrId()/g' lib/dvb/amldecoder.cpp
-          echo "" >> lib/dvb/Makefile.inc
-          echo "if HAVE_AMLOGIC" >> lib/dvb/Makefile.inc
-          echo "dvb_libenigma_dvb_a_SOURCES += dvb/amldecoder.cpp" >> lib/dvb/Makefile.inc
-          echo "endif" >> lib/dvb/Makefile.inc
+          # Toysoft amldecoder.cpp is intentionally NOT added to the build (DreamOne uses the DVB video path)
           sed -i '/AC_DEFINE_UNQUOTED(LCD_DEV/a AC_ARG_WITH(amlogic, AC_HELP_STRING([--with-amlogic], [use amlogic MPEG decoder]), [[with_amlogic=$withval]], [[with_amlogic=no]])\nAM_CONDITIONAL(HAVE_AMLOGIC, test x"$with_amlogic" = xyes)\nif test x"$with_amlogic" = xyes ; then\n  AC_DEFINE(HAVE_AMLOGIC, 1, [Enables AMLOGIC decoder support])\nfi' configure.ac
           autoreconf -v --install --force 2>&1 | tee ../out/autoreconf.log | tail -15
           ls -la configure Makefile.in
