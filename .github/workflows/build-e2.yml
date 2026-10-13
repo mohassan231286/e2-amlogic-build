@@ -150,6 +150,7 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/oe-alliance/oe-alliance-core.git oac
           git clone --branch 8.0 --single-branch https://github.com/openatv/enigma2.git src
+          git clone --depth 1 https://github.com/vitmod/libp.git aml_lib
           cd src
           git checkout -q 3bbdfa38e0
           git log -1 --format='%h %cd %s' | tee ../out/e2-version.txt
@@ -177,6 +178,9 @@ jobs:
           sudo mount -t proc proc $R/proc
           sudo mount --bind /dev $R/dev
           sudo cp /etc/resolv.conf $R/etc/resolv.conf
+          sudo mkdir -p $R/usr/include/amlogic
+          sudo cp -rf aml_lib/amcodec/include/* $R/usr/include/
+          sudo cp -rf aml_lib/amadec/include/* $R/usr/include/
           BBP=/bin/busybox.nosuid
           [ -e $R$BBP ] || BBP=/bin/busybox
           LINKS=$R/etc/busybox.links.nosuid
@@ -219,7 +223,7 @@ jobs:
           sudo tee $R/build/cfg.sh > /dev/null <<'CFGEOF'
           export PATH=/usr/bin:/bin:/usr/sbin:/sbin
           export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/share/pkgconfig
-          export CPPFLAGS="-Wno-error=format-security"
+          export CPPFLAGS="-Wno-error=format-security -I/usr/include"
           export LDFLAGS="-lxml2"
           cd /build/src
           ./configure --prefix=/usr --exec_prefix=/usr --bindir=/usr/bin --sbindir=/usr/sbin --libexecdir=/usr/libexec --datadir=/usr/share --sysconfdir=/etc --sharedstatedir=/com --localstatedir=/var --libdir=/usr/lib --includedir=/usr/include --oldincludedir=/usr/include --infodir=/usr/share/info --mandir=/usr/share/man --disable-silent-rules --enable-dependency-tracking BUILD_SYS=aarch64-linux HOST_SYS=aarch64-oe-linux STAGING_INCDIR=/usr/include STAGING_LIBDIR=/usr/lib --with-boxtype=generic --with-machinebuild=generic --with-libsdl=no --with-gstversion=1.0 --with-e2rev=35806+3bbdfa38e0 --with-oarev=unknown --with-alsa --with-alsacard=hw:0 --with-alsamixer=Master --with-fbdev=/dev/fb0 --with-lcddev=/dev/null --with-amlogic
@@ -237,7 +241,7 @@ jobs:
           export PATH=/usr/bin:/bin:/usr/sbin:/sbin
           export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/share/pkgconfig
           cd /build/src
-          make -k -j4 || { cat make.log | grep -E "error:|fatal error:|undefined reference" | head -n 30; exit 1; }
+          make -k -j4 && make install DESTDIR=/out
           MKEOF
           sudo chroot $R /bin/sh /build/make.sh > make.log 2>&1
           RC=$?
@@ -246,14 +250,6 @@ jobs:
           tail -60 make.log > out/make-tail.log
           gzip -c make.log > out/make.log.gz
           sudo chroot $R /usr/bin/strip --strip-unneeded /out/usr/bin/enigma2
-          ls -la $R/out/usr/bin 2>/dev/null | tee -a out/make-exit.txt
-          sudo chroot $R /usr/bin/readelf -d /out/usr/bin/enigma2 2>/dev/null | grep NEEDED > out/enigma2-needed.txt
-          W=$PWD
-          mkdir -p install
-          sudo tar czf $W/install/enigma2-install.tar.gz -C $R/out .
-          FILES="usr/bin/enigma2"
-          [ -f $R/out/usr/lib/enigma2/python/enigma.py ] && FILES="$FILES usr/lib/enigma2/python/enigma.py"
-          sudo tar czf $W/install/enigma2-bin.tar.gz -C $R/out $FILES
           ls -la install | tee -a out/make-exit.txt
           exit $RC
       - name: Publish release
