@@ -1,27 +1,38 @@
 name: aml-export
 on: workflow_dispatch
+defaults:
+  run:
+    shell: bash {0}
 jobs:
   export:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - uses: actions/checkout@v4
       - name: Collect
         run: |
+          mkdir -p out/mine
+          cp -r .github out/mine/
+          find . -path ./.git -prune -o -type f -print | head -200 > out/repo-tree.txt
           git clone --branch 8.0 --single-branch https://github.com/openatv/enigma2.git src
           cd src
           git checkout -q 3bbdfa38e0
+          git log -1 --format='%h %cd %s' > ../out/stock-version.txt
           cd ..
-          mkdir out
           find src -iname "*aml*" > out/aml-files.txt
-          cp src/lib/dvb/amldecoder.* out/ 2>/dev/null
-          cp src/lib/dvb/Makefile.inc src/lib/dvb/demux.cpp src/lib/dvb/demux.h out/
+          cp src/lib/dvb/amldecoder.* out/
+          cp src/lib/dvb/Makefile.inc src/lib/dvb/demux.cpp out/
           grep -rn "HAVE_AMLOGIC" src --include=*.cpp --include=*.h --include=*.ac --include=*.am --include=*.inc --include=*.py > out/have-amlogic.txt
           grep -n -i -B2 -A10 "amlogic" src/configure.ac > out/configure-aml.txt
           git clone --depth 1 https://github.com/vitmod/libp.git libp
           git -C libp branch -a > out/libp-branches.txt
           git -C libp log -3 --format='%h %cd %s' >> out/libp-branches.txt
           ls libp/amcodec/include libp/amadec/include > out/libp-headers.txt
+          echo "== stock version:"; cat out/stock-version.txt
+          echo "== files with aml in the name (stock):"; head -20 out/aml-files.txt
+          echo "== HAVE_AMLOGIC uses (stock):"; wc -l < out/have-amlogic.txt; head -25 out/have-amlogic.txt
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: aml-export
           path: out
