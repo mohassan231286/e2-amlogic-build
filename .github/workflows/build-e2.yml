@@ -158,6 +158,9 @@ jobs:
           sed -i "s/sigc++-2.0/sigc++-3.0/g" configure.ac enigma2.pc.in
           curl -sL "https://raw.githubusercontent.com/Toysoft/enigma2-amlogic/01c58b03e7b7bef6da6b5c53a994df97ac4a7d07/lib/dvb/amldecoder.cpp" -o lib/dvb/amldecoder.cpp
           curl -sL "https://raw.githubusercontent.com/Toysoft/enigma2-amlogic/01c58b03e7b7bef6da6b5c53a994df97ac4a7d07/lib/dvb/amldecoder.h" -o lib/dvb/amldecoder.h
+          sed -i 's/sigc::signal1/sigc::signal/g' lib/dvb/amldecoder.h lib/dvb/amldecoder.cpp
+          sed -i 's/sigc::slot1/sigc::slot/g' lib/dvb/amldecoder.h lib/dvb/amldecoder.cpp
+          sed -i 's/m_pvr_fd/getDvrId()/g' lib/dvb/amldecoder.cpp
           echo "" >> lib/dvb/Makefile.inc
           echo "if HAVE_AMLOGIC" >> lib/dvb/Makefile.inc
           echo "dvb_libenigma_dvb_a_SOURCES += dvb/amldecoder.cpp" >> lib/dvb/Makefile.inc
@@ -179,8 +182,8 @@ jobs:
           sudo mount --bind /dev $R/dev
           sudo cp /etc/resolv.conf $R/etc/resolv.conf
           sudo mkdir -p $R/usr/include/amlogic
-          sudo cp -rf aml_lib/amcodec/include/* $R/usr/include/
-          sudo cp -rf aml_lib/amadec/include/* $R/usr/include/
+          sudo cp -rf aml_lib/aml_codec/include/* $R/usr/include/ 2>/dev/null || sudo cp -rf aml_lib/amcodec/include/* $R/usr/include/ 2>/dev/null || true
+          sudo cp -rf aml_lib/amadec/include/* $R/usr/include/ 2>/dev/null || true
           BBP=/bin/busybox.nosuid
           [ -e $R$BBP ] || BBP=/bin/busybox
           LINKS=$R/etc/busybox.links.nosuid
